@@ -10,3 +10,8 @@ Egy független oldal transznemű embereknek.
   - névváltó
   - voice-training segítség
   - wc térkép
+
+## Felhasznált tech
+
+- [Hugo](https://gohugo.io/)
+- [Hugo PaperMod](https://github.com/adityatelange/hugo-PaperMod)

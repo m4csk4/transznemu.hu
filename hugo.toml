@@ -1,0 +1,4 @@
+baseURL = 'https://transznemu.hu/'
+locale = 'hu'
+title = 'transznemu.hu'
+theme = 'PaperMod'
