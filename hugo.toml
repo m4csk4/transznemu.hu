@@ -2,3 +2,8 @@ baseURL = 'https://transznemu.hu/'
 locale = 'hu'
 title = 'transznemu.hu'
 theme = 'PaperMod'
+
+[[menu.main]]
+name = 'Budikereső'
+url = '/budikereso/'
+weight = 10
