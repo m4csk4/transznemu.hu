@@ -5,6 +5,7 @@ layout = 'budikereso'
 hideMeta = true
 ShowReadingTime = false
 ShowShareButtons = false
+draft = true
 +++
 
 Ezen a térképen gender-semleges (unisex) mosdókat

@@ -1,0 +1,13 @@
+# Development / staging environment overrides.
+# Merged on top of config/_default/hugo.toml when building with:
+#   hugo --environment development
+#
+# This produces the dev.transznemu.hu build in its own output dir so it can be
+# served alongside production without clobbering public/.
+
+baseURL = 'https://dev.transznemu.hu/'
+publishDir = 'public-dev'
+
+# Preview unpublished work on the dev site.
+buildDrafts = true
+buildFuture  = true
