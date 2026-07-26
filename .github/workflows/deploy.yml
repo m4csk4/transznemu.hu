@@ -1,0 +1,88 @@
+name: Deploy to GitHub Pages
+
+# Builds the Hugo site and publishes it to GitHub Pages.
+#
+# Triggers:
+#   - push to main            → deploy on every content/code change
+#   - workflow_dispatch       → manual runs, and the trigger the OSM-data
+#                               refresh job uses after it commits new data
+#                               (a push made with GITHUB_TOKEN does NOT
+#                               re-fire the `push` event, so the refresh
+#                               job dispatches this workflow explicitly).
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# Least-privilege token: read the repo, write to Pages, mint the OIDC token
+# that actions/deploy-pages needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; don't cancel an in-flight deploy.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Keep in step with the version in DEPLOYMENT.md / your local build.
+      HUGO_VERSION: 0.163.0
+    steps:
+      - name: Install Hugo (extended)
+        run: |
+          wget -O "${{ runner.temp }}/hugo.deb" \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
+          sudo dpkg -i "${{ runner.temp }}/hugo.deb"
+
+      - name: Install Dart Sass
+        run: sudo snap install dart-sass
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # pulls in the PaperMod theme
+          fetch-depth: 0          # full history (git-based .Lastmod, etc.)
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Hugo
+        env:
+          HUGO_ENVIRONMENT: production
+          HUGO_ENV: production
+          TZ: Europe/Budapest
+        # --baseURL uses the URL that Pages reports for this site. That is the
+        # custom domain if one is configured (e.g. https://transznemu.hu), or
+        # the https://<owner>.github.io/<repo>/ project URL otherwise — so the
+        # build works in both setups without editing config/_default/hugo.toml.
+        run: |
+          hugo \
+            --gc \
+            --minify \
+            --baseURL "${{ steps.pages.outputs.base_url }}/"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

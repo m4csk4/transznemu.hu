@@ -4,6 +4,10 @@ How transznemu.hu is built and served. The site is a static [Hugo](https://gohug
 build served by nginx, with both the public site and a dev/staging site sitting
 behind Cloudflare. nginx only accepts traffic from Cloudflare edge IPs.
 
+> **Alternative:** to host on GitHub Pages instead — with GitHub Actions
+> handling deploys and the periodic OSM data refresh, no server required — see
+> [DEPLOYMENT-GITHUB-PAGES.md](DEPLOYMENT-GITHUB-PAGES.md).
+
 ```text
 visitor ──▶ Cloudflare ──▶ nginx (Cloudflare-only) ──▶ static files
                             ├─ transznemu.hu      → public/
