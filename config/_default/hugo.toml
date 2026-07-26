@@ -3,6 +3,12 @@ locale = 'hu'
 title = 'transznemu.hu'
 theme = 'PaperMod'
 
+[params]
+    [params.footer]
+        text = '[Forráskód](https://github.com/m4csk4/transznemu.hu)'
+    [params.contact]
+        email = 'juli@transznemu.hu'
+
 [[menu.main]]
 name = 'Budikereső'
 url = '/budikereso/'
