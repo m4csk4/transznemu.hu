@@ -1,0 +1,56 @@
+{
+  "updated": "2026-07-31",
+  "eur_huf": 365,
+  "labor_alkalom_ev": 4,
+  "utvonalak": [
+    {
+      "id": "imago",
+      "nev": "imago.tg",
+      "leiras": "online, távkonzultáció",
+      "url": "https://www.imago.tg/services-and-prices/",
+      "tetelek": [
+        { "nev": "Onboarding", "kategoria": "egyszeri", "osszeg": 250, "penznem": "EUR", "gyakorisag": "egyszeri" },
+        { "nev": "Előfizetés", "kategoria": "konzultacio", "osszeg": 22, "penznem": "EUR", "gyakorisag": "honap" },
+        { "nev": "Kontroll", "kategoria": "konzultacio", "osszeg": 60, "penznem": "EUR", "gyakorisag": "ev" }
+      ]
+    },
+    {
+      "id": "becs",
+      "nev": "Bécs (teampraxis)",
+      "leiras": "személyes konzultáció Bécsben",
+      "url": "https://teampraxis.wien/home/transgender-medizin/",
+      "latogatas": {
+        "cimke": "Konzultáció gyakorisága",
+        "opciok": [
+          { "id": "3honap", "nev": "3 havonta" },
+          { "id": "6honap", "nev": "félévente" }
+        ]
+      },
+      "tetelek": [
+        { "nev": "Szakvélemény", "kategoria": "egyszeri", "osszeg": 30000, "penznem": "HUF", "gyakorisag": "egyszeri", "kb": true, "url": "https://www.drfridelmaria.hu/arak/" },
+        { "nev": "Konzultáció (személyes)", "kategoria": "konzultacio", "osszeg": 50, "penznem": "EUR", "gyakorisag": "latogatas" },
+        { "nev": "Vonat Bécsbe és vissza", "kategoria": "utazas", "osszeg": 30, "penznem": "EUR", "gyakorisag": "latogatas", "url": "https://jegy.mav.hu/" }
+      ]
+    }
+  ],
+  "labor": {
+    "nev": "Labor (Synlab)",
+    "kategoria": "labor",
+    "osszeg": 33000,
+    "penznem": "HUF",
+    "gyakorisag": "alkalom",
+    "url": "https://synlab.hu/transzegeszsegugyi-allapotfelmeres/"
+  },
+  "gyogyszerek": [
+    { "id": "tabletta", "nev": "Tabletta", "kategoria": "gyogyszer", "osszeg": 2000, "penznem": "HUF", "gyakorisag": "honap" },
+    { "id": "estrogel", "nev": "Estrogel", "kategoria": "gyogyszer", "osszeg": 2500, "penznem": "HUF", "gyakorisag": "honap" },
+    { "id": "neofollin", "nev": "Neofollin", "kategoria": "gyogyszer", "osszeg": 2000, "penznem": "HUF", "gyakorisag": "honap" }
+  ],
+  "kategoriak": {
+    "konzultacio": "Konzultáció",
+    "gyogyszer": "Hormon",
+    "labor": "Labor",
+    "utazas": "Utazás",
+    "egyszeri": "Egyszeri költségek"
+  }
+}

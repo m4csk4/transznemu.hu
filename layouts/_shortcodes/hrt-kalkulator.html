@@ -1,0 +1,933 @@
+{{- $d := hugo.Data.hrt -}}
+<div class="hrtcalc" id="hrtcalc">
+
+  <div class="hc-panel">
+    <div class="hc-field">
+      <span class="hc-legend">Hormon</span>
+      <div class="hc-chips" role="radiogroup" aria-label="Hormon">
+        {{- range $i, $g := $d.gyogyszerek }}
+        <button type="button" class="hc-chip" role="radio" data-drug="{{ $g.id }}"
+          aria-checked="{{ if eq $i 0 }}true{{ else }}false{{ end }}">
+          {{ $g.nev }} <span class="hc-chip-price" data-unit-price="{{ $g.id }}"></span>
+        </button>
+        {{- end }}
+      </div>
+    </div>
+
+    <div class="hc-row">
+      <label class="hc-field hc-field-sm" for="hc-labor">
+        <span class="hc-legend">Labor / év</span>
+        <input type="number" id="hc-labor" min="0" max="12" step="1" value="{{ $d.labor_alkalom_ev }}">
+        <span class="hc-hint" id="hc-labor-hint"></span>
+      </label>
+
+      <label class="hc-field hc-field-sm" for="hc-eur">
+        <span class="hc-legend">Árfolyam</span>
+        <input type="number" id="hc-eur" min="1" max="9999" step="1" value="{{ $d.eur_huf }}">
+        <span class="hc-hint">Ft / €</span>
+      </label>
+
+      <div class="hc-field hc-field-sm">
+        <span class="hc-legend">Melyik év</span>
+        <div class="hc-seg" role="radiogroup" aria-label="Melyik év">
+          <button type="button" class="hc-segbtn" role="radio" data-scope="first" aria-checked="true">Első év</button>
+          <button type="button" class="hc-segbtn" role="radio" data-scope="later" aria-checked="false">További évek</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hc-totals-label" id="hc-totals-label">Első év összesen</div>
+  <div class="hc-cols">
+    {{- range $i, $r := $d.utvonalak }}
+    <div class="hc-col" data-series="{{ add $i 1 }}">
+      <div class="hc-col-name"><span class="hc-key" data-series="{{ add $i 1 }}"></span>
+        {{- with $r.url }}
+        <a href="{{ . }}" target="_blank" rel="noopener">{{ $r.nev }}&nbsp;↗</a>
+        {{- else }}
+        {{ $r.nev }}
+        {{- end }}
+      </div>
+      <div class="hc-col-desc">{{ $r.leiras }}</div>
+      <div class="hc-col-total" data-col-total="{{ $r.id }}">–</div>
+      <div class="hc-col-split">
+        <span data-col-once="{{ $r.id }}"></span>
+        <span data-col-year="{{ $r.id }}"></span>
+      </div>
+      {{- with $r.latogatas }}
+      <div class="hc-col-visit hc-col-slot">
+        <span class="hc-legend">{{ .cimke }}</span>
+        <div class="hc-seg" role="radiogroup" aria-label="{{ $r.nev }} — {{ .cimke }}">
+          {{- range $j, $o := .opciok }}
+          <button type="button" class="hc-segbtn" role="radio"
+            data-visit-route="{{ $r.id }}" data-visit="{{ $o.id }}"
+            aria-checked="{{ if eq $j 0 }}true{{ else }}false{{ end }}">{{ $o.nev }}</button>
+          {{- end }}
+        </div>
+      </div>
+      {{- else }}
+      {{- /* Keeps the row count identical in every column so the subgrid can
+             line the price boxes up across them. */}}
+      <div class="hc-col-slot"></div>
+      {{- end }}
+      <ul class="hc-items" data-col-items="{{ $r.id }}"></ul>
+    </div>
+    {{- end }}
+  </div>
+  <p class="hc-diff" id="hc-diff"></p>
+
+  <figure class="hc-figure">
+    <figcaption class="hc-figcaption">
+      Mire megy el a pénz — <span id="hc-chart-scope">első év</span>, forintban
+    </figcaption>
+    <div class="hc-chartlegend">
+      {{- range $i, $r := $d.utvonalak }}
+      <span class="hc-legend-item"><span class="hc-key" data-series="{{ add $i 1 }}"></span>{{ $r.nev }}</span>
+      {{- end }}
+    </div>
+    <div class="hc-chart" id="hc-chart"></div>
+    <div class="hc-tooltip" id="hc-tooltip" role="status" aria-live="polite" hidden></div>
+  </figure>
+
+  <div class="hc-tablewrap">
+    <table class="hc-table">
+      <caption class="hc-figcaption">Tételes összehasonlítás</caption>
+      <thead>
+        <tr>
+          <th scope="col">Költség</th>
+          {{- range $i, $r := $d.utvonalak }}
+          <th scope="col" class="hc-num"><span class="hc-key" data-series="{{ add $i 1 }}"></span>{{ $r.nev }}</th>
+          {{- end }}
+        </tr>
+      </thead>
+      <tbody id="hc-tbody"></tbody>
+      <tfoot id="hc-tfoot"></tfoot>
+    </table>
+  </div>
+
+  <p class="hc-note">
+    A számok tájékoztató jellegűek, {{ $d.updated }}-i állapotot hivatott tükrözni. Előfordulhat, hogy a valós költségek ettől eltérnek.
+  </p>
+</div>
+
+<style>
+  .hrtcalc {
+    color-scheme: light;
+    --hc-surface: var(--entry, #fff);
+    --hc-ink: var(--primary, #1e1e1e);
+    --hc-ink-2: var(--secondary, #6c6c6c);
+    --hc-line: var(--border, #eee);
+    --hc-series-1: #4a3aa7;
+    --hc-series-2: #e2512f;
+    --hc-series-3: #1baf7a;
+    /* Neutral, so a hover highlight spanning both bars never reads as one
+       route's colour. */
+    --hc-wash: rgba(0, 0, 0, .05);
+    margin: 1.5rem 0;
+    font-size: .95rem;
+  }
+
+  /* PaperMod resolves the OS preference into data-theme on <html> and keys its
+     own surface variables off that alone — so the series colours follow the
+     same signal, never prefers-color-scheme, or the two can disagree. */
+  :root[data-theme="dark"] .hrtcalc {
+    color-scheme: dark;
+    --hc-series-1: #9085e9;
+    --hc-series-2: #d64d2a;
+    --hc-series-3: #199e70;
+    --hc-wash: rgba(255, 255, 255, .07);
+  }
+
+  /* Identity lives on the mark, never on the text. */
+  .hc-key {
+    display: inline-block;
+    width: .7em;
+    height: .7em;
+    border-radius: 2px;
+    margin-right: .4em;
+    vertical-align: baseline;
+  }
+
+  .hc-key[data-series="1"] { background: var(--hc-series-1); }
+  .hc-key[data-series="2"] { background: var(--hc-series-2); }
+  .hc-key[data-series="3"] { background: var(--hc-series-3); }
+
+  /* ---- controls ---- */
+  .hc-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--hc-line);
+    border-radius: 8px;
+    background: var(--hc-surface);
+  }
+
+  .hc-legend {
+    display: block;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--hc-ink-2);
+    margin-bottom: .45rem;
+  }
+
+  .hc-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+  .hc-chip {
+    padding: .45rem .7rem;
+    border: 1px solid var(--hc-line);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--hc-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: .88rem;
+  }
+
+  .hc-chip-price { color: var(--hc-ink-2); font-size: .82rem; }
+
+  .hc-chip[aria-checked="true"] {
+    border-color: var(--hc-ink);
+    box-shadow: inset 0 0 0 1px var(--hc-ink);
+  }
+
+  .hc-chip:hover, .hc-segbtn:hover { background: var(--hc-wash); }
+
+  .hc-chip:focus-visible, .hc-segbtn:focus-visible,
+  .hrtcalc input:focus-visible, .hc-group:focus-visible {
+    outline: 2px solid var(--hc-ink);
+    outline-offset: 2px;
+  }
+
+  .hc-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .hc-field-sm { flex: 0 1 auto; }
+
+  .hrtcalc input[type="number"] {
+    width: 6.5rem;
+    padding: .4rem .5rem;
+    border: 1px solid var(--hc-line);
+    border-radius: 6px;
+    background: var(--hc-surface);
+    color: var(--hc-ink);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hc-hint { display: block; font-size: .78rem; color: var(--hc-ink-2); margin-top: .25rem; }
+
+  .hc-seg { display: inline-flex; border: 1px solid var(--hc-line); border-radius: 6px; overflow: hidden; }
+
+  .hc-segbtn {
+    padding: .4rem .75rem;
+    border: 0;
+    background: transparent;
+    color: var(--hc-ink-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: .88rem;
+  }
+
+  .hc-segbtn + .hc-segbtn { border-left: 1px solid var(--hc-line); }
+  .hc-segbtn[aria-checked="true"] { color: var(--hc-ink); font-weight: 600; background: var(--hc-wash); }
+
+  /* ---- the two compared columns ---- */
+  .hc-totals-label { font-size: .8rem; color: var(--hc-ink-2); margin: 1.75rem 0 .5rem; }
+
+  .hc-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .75rem;
+  }
+
+  /* Subgrid lines every column's rows up on shared tracks, so the totals share
+     a baseline and the price boxes start on the same line no matter how a name
+     wraps or which column carries an extra control. Without subgrid the
+     min-height on .hc-col-desc below is the fallback. */
+  @supports (grid-template-rows: subgrid) {
+    .hc-cols { grid-template-rows: repeat(6, auto); }
+
+    .hc-col {
+      display: grid;
+      grid-template-rows: subgrid;
+      grid-row: span 6;
+      row-gap: 0;
+      align-content: start;
+    }
+
+    .hc-col-desc { min-height: 0; }
+  }
+
+  .hc-col {
+    padding: .85rem;
+    border: 1px solid var(--hc-line);
+    border-radius: 8px;
+    /* The 3px top rule is the column's series key — a second, non-colour cue
+       sits beside it in .hc-col-name, so identity never rests on hue alone. */
+    border-top: 3px solid var(--hc-s, var(--hc-line));
+  }
+
+  .hc-col[data-series="1"] { --hc-s: var(--hc-series-1); }
+  .hc-col[data-series="2"] { --hc-s: var(--hc-series-2); }
+  .hc-col[data-series="3"] { --hc-s: var(--hc-series-3); }
+
+  .hc-col-name { font-weight: 600; color: var(--hc-ink); }
+
+  .hc-col-name a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  /* Reserve two lines so a description that wraps in one column doesn't push
+     its total out of line with the other's — the two figures must stay on the
+     same baseline to be comparable at a glance. */
+  .hc-col-desc {
+    font-size: .8rem;
+    line-height: 1.3;
+    min-height: 2.6em;
+    color: var(--hc-ink-2);
+    margin-top: .1rem;
+  }
+
+  .hc-col-total {
+    font-size: clamp(1.5rem, 5.5vw, 2rem);
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--hc-ink);
+    margin-top: .5rem;
+  }
+
+  .hc-col-split {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    margin-top: .3rem;
+    font-size: .8rem;
+    color: var(--hc-ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scoped to one route, so it lives in that route's column rather than in the
+     shared control row. Sits below the total to keep both columns' totals on
+     the same baseline. */
+  .hc-col-visit { margin-top: .9rem; }
+  .hc-col-visit .hc-legend { margin-bottom: .3rem; }
+  .hc-col-visit .hc-seg { display: flex; width: 100%; }
+
+  .hc-col-visit .hc-segbtn {
+    flex: 1 1 0;
+    text-align: center;
+    padding: .35rem .3rem;
+    font-size: .8rem;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  /* The itemised prices for one route, as separate rounded boxes. */
+  .hc-items {
+    list-style: none;
+    margin: .85rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  .hc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .45rem .6rem;
+    border: 1px solid var(--hc-line);
+    border-radius: 8px;
+  }
+
+  /* PaperMod's reset sets word-break: break-word globally, which snaps these
+     short labels mid-word ("Onboa/rding") once the column gets narrow. */
+  .hc-item-label, .hc-item-name, .hc-item-unit, .hc-item-sum {
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .hc-item-label { min-width: 0; }
+  .hc-item-name { font-size: .82rem; color: var(--hc-ink); }
+
+  .hc-item-name[href] { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  .hc-item-unit {
+    display: block;
+    font-size: .75rem;
+    color: var(--hc-ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hc-item-sum {
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--hc-ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .hc-diff { font-size: .85rem; color: var(--hc-ink-2); margin: .75rem 0 0; }
+
+  /* ---- chart ---- */
+  .hc-figure { margin: 2rem 0 0; position: relative; }
+
+  .hc-figcaption {
+    font-size: .8rem;
+    color: var(--hc-ink-2);
+    margin-bottom: .5rem;
+    text-align: left;
+  }
+
+  .hc-chartlegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem 1rem;
+    margin-bottom: .85rem;
+    font-size: .82rem;
+    color: var(--hc-ink-2);
+  }
+
+  .hc-chart { display: flex; flex-direction: column; gap: .7rem; }
+
+  .hc-group {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 9.5em) minmax(0, 1fr);
+    align-items: center;
+    gap: .6rem;
+    border-radius: 4px;
+  }
+
+  .hc-group-label { font-size: .85rem; color: var(--hc-ink-2); }
+
+  /* 2px of surface separates the two bars in a group; the larger gap between
+     groups is what makes each pair read as one group. */
+  .hc-bars { display: flex; flex-direction: column; gap: 2px; }
+
+  /* The value rides the bar tip. --hc-valw is the widest value label, measured
+     in JS, so the longest bar always leaves exactly enough room for its own
+     number — the label can never be clipped or overflow the row. */
+  .hc-bar-track { display: flex; align-items: center; gap: .5rem; min-width: 0; min-height: 16px; }
+
+  .hc-bar-fill {
+    height: 12px;
+    flex: 0 0 auto;
+    border-radius: 0 4px 4px 0;
+    transition: width .18s ease-out;
+  }
+
+  .hc-bar-fill[data-series="1"] { background: var(--hc-series-1); }
+  .hc-bar-fill[data-series="2"] { background: var(--hc-series-2); }
+  .hc-bar-fill[data-series="3"] { background: var(--hc-series-3); }
+
+  .hc-bar-value {
+    flex: 0 0 auto;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--hc-ink);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .hc-bar-value[data-zero="true"] { font-weight: 400; color: var(--hc-ink-2); }
+
+  .hc-group:hover, .hc-group[data-active="true"] { background: var(--hc-wash); }
+
+  .hc-tooltip {
+    position: absolute;
+    z-index: 3;
+    max-width: 19rem;
+    padding: .5rem .65rem;
+    border: 1px solid var(--hc-line);
+    border-radius: 6px;
+    background: var(--hc-surface);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .12);
+    font-size: .82rem;
+    line-height: 1.45;
+    pointer-events: none;
+  }
+
+  .hc-tooltip strong { display: block; }
+  .hc-tooltip em { font-style: normal; color: var(--hc-ink-2); }
+  .hc-tt-row + .hc-tt-row { margin-top: .4rem; }
+
+  /* ---- table ---- */
+  /* The table scrolls inside its own box so the page never scrolls sideways. */
+  .hc-tablewrap { margin: 2rem 0 0; overflow-x: auto; }
+
+  .hc-table {
+    width: 100%;
+    min-width: 24rem;
+    border-collapse: collapse;
+    font-size: .88rem;
+  }
+
+  .hc-table caption { caption-side: top; }
+  .hc-table th, .hc-table td { padding: .45rem .5rem; border-bottom: 1px solid var(--hc-line); text-align: left; }
+  .hc-table thead th { font-size: .78rem; color: var(--hc-ink-2); font-weight: 600; white-space: nowrap; }
+  .hc-num { text-align: right !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hc-table tfoot th, .hc-table tfoot td { border-bottom: 0; border-top: 1px solid var(--hc-line); font-weight: 600; }
+
+  .hc-note { font-size: .8rem; color: var(--hc-ink-2); line-height: 1.6; margin-top: 1.25rem; }
+
+  @media (max-width: 480px) {
+    .hc-group { grid-template-columns: minmax(0, 1fr); row-gap: .15rem; }
+  }
+
+  /* Two columns side by side leave a chip about 140px wide — not enough for a
+     name and its sum on one line. Stack the chip instead of stacking the
+     columns, so the two totals stay next to each other for comparison. */
+  @media (max-width: 560px) {
+    .hc-item { flex-direction: column; align-items: stretch; gap: .1rem; }
+    .hc-item-sum { text-align: right; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hc-bar-fill { transition: none; }
+  }
+</style>
+
+<script>
+  (function () {
+    var DATA = {{ $d | jsonify | safeJS }};
+    var root = document.getElementById('hrtcalc');
+    if (!root || !DATA) { return; }
+
+    var FREQ = { egyszeri: 0, honap: 12, '3honap': 4, '6honap': 2, ev: 1 };
+    var FREQ_LABEL = {
+      egyszeri: 'egyszeri', honap: 'havonta', '3honap': '3 havonta',
+      '6honap': 'félévente', ev: 'évente', alkalom: 'alkalmanként'
+    };
+    var FREQ_SHORT = { honap: '/hó', '3honap': '/3 hó', '6honap': '/félév', ev: '/év' };
+    var CAT_ORDER = ['konzultacio', 'gyogyszer', 'labor', 'utazas', 'egyszeri'];
+
+    var state = {
+      drug: DATA.gyogyszerek[0].id,
+      labor: Number(DATA.labor_alkalom_ev) || 0,
+      eur: Number(DATA.eur_huf) || 400,
+      scope: 'first',
+      // How often you travel out for a personal visit, per route. Both the
+      // consultation and the train fare hang off this, since you only pay the
+      // fare when you actually go.
+      visit: {}
+    };
+
+    DATA.utvonalak.forEach(function (r) {
+      if (r.latogatas && r.latogatas.opciok && r.latogatas.opciok.length) {
+        state.visit[r.id] = r.latogatas.opciok[0].id;
+      }
+    });
+
+    // Colour follows the route itself, fixed by its position in the data — never
+    // by rank or current value, so a cheaper route never steals the other's hue.
+    var SERIES = {};
+    DATA.utvonalak.forEach(function (r, i) { SERIES[r.id] = i + 1; });
+
+    var fmtHuf = new Intl.NumberFormat('hu-HU', { maximumFractionDigits: 0 });
+    var ft = function (n) { return fmtHuf.format(Math.round(n)) + ' Ft'; };
+
+    function toHuf(item) {
+      return item.penznem === 'EUR' ? item.osszeg * state.eur : item.osszeg;
+    }
+
+    function unitLabel(item) {
+      var amount = item.penznem === 'EUR'
+        ? fmtHuf.format(item.osszeg) + ' €'
+        : fmtHuf.format(item.osszeg) + ' Ft';
+      return (item.kb ? '~' : '') + amount;
+    }
+
+    // One line item -> its annual cost under the current scope.
+    function annual(item) {
+      var unit = toHuf(item);
+      if (item.gyakorisag === 'egyszeri') { return state.scope === 'first' ? unit : 0; }
+      if (item.gyakorisag === 'alkalom') { return unit * state.labor; }
+      return unit * (FREQ[item.gyakorisag] || 0);
+    }
+
+    function partLabel(item) {
+      if (item.gyakorisag === 'alkalom') {
+        return item.nev + ' ' + unitLabel(item) + ' × ' + state.labor;
+      }
+      if (item.gyakorisag === 'egyszeri') {
+        return item.nev + ' ' + unitLabel(item) + ' egyszeri';
+      }
+      return item.nev + ' ' + unitLabel(item) + (FREQ_SHORT[item.gyakorisag] || '');
+    }
+
+    function routeById(id) {
+      return DATA.utvonalak.filter(function (r) { return r.id === id; })[0];
+    }
+
+    // Every line item that applies to a route under the current scope. Lab and
+    // hormone are shared, so they land in both routes' totals.
+    function itemsFor(routeId) {
+      // 'latogatas' items inherit whichever visit cadence is selected for the
+      // route, so the consultation and the train fare always move together.
+      var items = routeById(routeId).tetelek.map(function (it) {
+        if (it.gyakorisag !== 'latogatas') { return it; }
+        var resolved = {};
+        Object.keys(it).forEach(function (k) { resolved[k] = it[k]; });
+        resolved.gyakorisag = state.visit[routeId] || 'ev';
+        return resolved;
+      });
+      if (state.labor > 0) { items.push(DATA.labor); }
+      var drug = DATA.gyogyszerek.filter(function (g) { return g.id === state.drug; })[0];
+      if (drug) { items.push(drug); }
+      return items.filter(function (it) {
+        return !(it.gyakorisag === 'egyszeri' && state.scope !== 'first');
+      });
+    }
+
+    function totalFor(routeId, scope) {
+      var keep = state.scope;
+      state.scope = scope;
+      var sum = itemsFor(routeId).reduce(function (acc, it) { return acc + annual(it); }, 0);
+      state.scope = keep;
+      return sum;
+    }
+
+    // A route's cost split into what you pay once up front and what recurs
+    // every year — independent of the year toggle, so the split always reads the same.
+    function splitFor(routeId) {
+      var recurring = totalFor(routeId, 'later');
+      var kb = routeById(routeId).tetelek.some(function (it) {
+        return it.gyakorisag === 'egyszeri' && it.kb;
+      });
+      return { once: totalFor(routeId, 'first') - recurring, recurring: recurring, kb: kb };
+    }
+
+    function catsFor(routeId) {
+      var byCat = {};
+      itemsFor(routeId).forEach(function (it) {
+        var amount = annual(it);
+        if (amount <= 0) { return; }
+        if (!byCat[it.kategoria]) { byCat[it.kategoria] = { total: 0, parts: [] }; }
+        byCat[it.kategoria].total += amount;
+        byCat[it.kategoria].parts.push(partLabel(it));
+      });
+      return byCat;
+    }
+
+    var tooltip = document.getElementById('hc-tooltip');
+    var chart = document.getElementById('hc-chart');
+
+    // One tooltip per category group, listing both routes side by side — the
+    // comparison is the point, so hovering shows both, not just one bar.
+    function showTooltip(group, cat, per) {
+      tooltip.innerHTML = '';
+      var head = document.createElement('strong');
+      head.textContent = cat.label;
+      tooltip.appendChild(head);
+
+      DATA.utvonalak.forEach(function (r) {
+        var entry = per[r.id][cat.key];
+        var row = document.createElement('div');
+        row.className = 'hc-tt-row';
+
+        var key = document.createElement('span');
+        key.className = 'hc-key';
+        key.setAttribute('data-series', SERIES[r.id]);
+        row.appendChild(key);
+
+        var name = document.createElement('span');
+        name.textContent = r.nev + ': ' + (entry ? ft(entry.total) + ' / év' : 'nincs ilyen költség');
+        row.appendChild(name);
+
+        if (entry) {
+          entry.parts.forEach(function (p) {
+            var detail = document.createElement('em');
+            detail.textContent = p;
+            row.appendChild(document.createElement('br'));
+            row.appendChild(detail);
+          });
+        }
+        tooltip.appendChild(row);
+      });
+
+      tooltip.hidden = false;
+      group.setAttribute('data-active', 'true');
+      var top = group.offsetTop + group.offsetHeight + 6;
+      tooltip.style.top = top + 'px';
+      tooltip.style.left = Math.max(0, Math.min(
+        group.offsetLeft + 40, chart.offsetWidth - tooltip.offsetWidth)) + 'px';
+    }
+
+    function hideTooltip() {
+      tooltip.hidden = true;
+      Array.prototype.forEach.call(chart.querySelectorAll('.hc-group'), function (g) {
+        g.removeAttribute('data-active');
+      });
+    }
+
+    // Grouped horizontal bars: one group per category, one bar per route.
+    function renderChart(cats, per, max) {
+      chart.innerHTML = '';
+      hideTooltip();
+      var fills = [];
+
+      cats.forEach(function (cat) {
+        var group = document.createElement('div');
+        group.className = 'hc-group';
+        group.tabIndex = 0;
+        group.setAttribute('role', 'group');
+        group.setAttribute('aria-label', cat.label + ': ' + DATA.utvonalak.map(function (r) {
+          var e = per[r.id][cat.key];
+          return r.nev + ' ' + (e ? ft(e.total) : 'nincs');
+        }).join(', '));
+
+        var label = document.createElement('div');
+        label.className = 'hc-group-label';
+        label.textContent = cat.label;
+
+        var bars = document.createElement('div');
+        bars.className = 'hc-bars';
+
+        DATA.utvonalak.forEach(function (r) {
+          var entry = per[r.id][cat.key];
+          var value = entry ? entry.total : 0;
+
+          var track = document.createElement('div');
+          track.className = 'hc-bar-track';
+
+          var fill = document.createElement('div');
+          fill.className = 'hc-bar-fill';
+          fill.setAttribute('data-series', SERIES[r.id]);
+          track.appendChild(fill);
+          fills.push([fill, value / max]);
+
+          var valueEl = document.createElement('div');
+          valueEl.className = 'hc-bar-value';
+          if (value > 0) {
+            valueEl.textContent = ft(value);
+          } else {
+            valueEl.textContent = '—';
+            valueEl.setAttribute('data-zero', 'true');
+          }
+          track.appendChild(valueEl);
+          bars.appendChild(track);
+        });
+
+        group.appendChild(label);
+        group.appendChild(bars);
+
+        group.addEventListener('mouseenter', function () { showTooltip(group, cat, per); });
+        group.addEventListener('focus', function () { showTooltip(group, cat, per); });
+        group.addEventListener('mouseleave', hideTooltip);
+        group.addEventListener('blur', hideTooltip);
+
+        chart.appendChild(group);
+      });
+
+      // Reserve the widest value label (plus the flex gap) out of every bar's
+      // available width, so the scale stays linear and no label is squeezed out.
+      var widest = Array.prototype.reduce.call(
+        chart.querySelectorAll('.hc-bar-value'),
+        function (m, el) { return Math.max(m, el.offsetWidth); }, 0);
+      var reserve = widest + 8;
+      fills.forEach(function (pair) {
+        pair[0].style.width = 'calc(' + Math.max(0, pair[1]).toFixed(4) +
+          ' * (100% - ' + reserve + 'px))';
+      });
+    }
+
+    // The route's prices as separate rounded boxes: what each line item costs
+    // on its own, and what it adds up to across the year.
+    function renderItems(routeId) {
+      var list = root.querySelector('[data-col-items="' + routeId + '"]');
+      list.innerHTML = '';
+
+      itemsFor(routeId).forEach(function (it) {
+        var li = document.createElement('li');
+        li.className = 'hc-item';
+
+        var label = document.createElement('span');
+        label.className = 'hc-item-label';
+
+        var name;
+        if (it.url) {
+          name = document.createElement('a');
+          name.setAttribute('href', it.url);
+          name.setAttribute('target', '_blank');
+          name.setAttribute('rel', 'noopener');
+          // Non-breaking space so the arrow never wraps onto a line of its own.
+          name.textContent = it.nev + ' ↗';
+        } else {
+          name = document.createElement('span');
+          name.textContent = it.nev;
+        }
+        name.className = 'hc-item-name';
+        label.appendChild(name);
+
+        var unit = document.createElement('span');
+        unit.className = 'hc-item-unit';
+        unit.textContent = unitLabel(it) + ' ' + (
+          it.gyakorisag === 'alkalom' ? '× ' + state.labor + ' / év'
+            : it.gyakorisag === 'egyszeri' ? 'egyszeri'
+            : FREQ_LABEL[it.gyakorisag]);
+        label.appendChild(unit);
+
+        var sum = document.createElement('span');
+        sum.className = 'hc-item-sum';
+        sum.textContent = ft(annual(it));
+
+        li.appendChild(label);
+        li.appendChild(sum);
+        list.appendChild(li);
+      });
+    }
+
+    function renderTable(cats, per, totals) {
+      var tbody = document.getElementById('hc-tbody');
+      var tfoot = document.getElementById('hc-tfoot');
+      tbody.innerHTML = '';
+      tfoot.innerHTML = '';
+
+      cats.forEach(function (cat) {
+        var tr = document.createElement('tr');
+        var th = document.createElement('th');
+        th.setAttribute('scope', 'row');
+        th.style.fontWeight = '400';
+        th.textContent = cat.label;
+        tr.appendChild(th);
+
+        DATA.utvonalak.forEach(function (r) {
+          var entry = per[r.id][cat.key];
+          var td = document.createElement('td');
+          td.className = 'hc-num';
+          td.textContent = entry ? ft(entry.total) : '—';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      var ftr = document.createElement('tr');
+      var fth = document.createElement('th');
+      fth.setAttribute('scope', 'row');
+      fth.textContent = 'Összesen';
+      ftr.appendChild(fth);
+      DATA.utvonalak.forEach(function (r) {
+        var td = document.createElement('td');
+        td.className = 'hc-num';
+        td.textContent = ft(totals[r.id]);
+        ftr.appendChild(td);
+      });
+      tfoot.appendChild(ftr);
+    }
+
+    function render() {
+      var isFirst = state.scope === 'first';
+      var per = {};
+      var totals = {};
+
+      DATA.utvonalak.forEach(function (r) {
+        per[r.id] = catsFor(r.id);
+        totals[r.id] = Object.keys(per[r.id]).reduce(function (acc, k) {
+          return acc + per[r.id][k].total;
+        }, 0);
+      });
+
+      function biggest(catKey) {
+        return DATA.utvonalak.reduce(function (m, r) {
+          var e = per[r.id][catKey];
+          return Math.max(m, e ? e.total : 0);
+        }, 0);
+      }
+
+      // A category shows up if either route has it; rows stay aligned across
+      // both columns so the two are always compared on the same line.
+      var cats = CAT_ORDER.filter(function (c) {
+        return DATA.utvonalak.some(function (r) { return per[r.id][c]; });
+      }).map(function (c) {
+        return { key: c, label: DATA.kategoriak[c] || c, peak: biggest(c) };
+      }).sort(function (a, b) { return b.peak - a.peak; });
+
+      var max = cats.reduce(function (m, c) { return Math.max(m, c.peak); }, 0) || 1;
+
+      document.getElementById('hc-totals-label').textContent =
+        isFirst ? 'Első év összesen' : 'Egy év összesen (a második évtől)';
+      document.getElementById('hc-chart-scope').textContent =
+        isFirst ? 'első év' : 'további évek';
+
+      DATA.utvonalak.forEach(function (r) {
+        var split = splitFor(r.id);
+        root.querySelector('[data-col-total="' + r.id + '"]').textContent = ft(totals[r.id]);
+        root.querySelector('[data-col-once="' + r.id + '"]').textContent = split.once > 0
+          ? (split.kb ? '~' : '') + ft(split.once) + ' induláskor'
+          : 'nincs induló költség';
+        root.querySelector('[data-col-year="' + r.id + '"]').textContent =
+          'utána ' + ft(split.recurring) + ' / év';
+        renderItems(r.id);
+      });
+
+      var sorted = DATA.utvonalak.slice().sort(function (a, b) {
+        return totals[a.id] - totals[b.id];
+      });
+      var gap = totals[sorted[sorted.length - 1].id] - totals[sorted[0].id];
+      document.getElementById('hc-diff').textContent = gap > 0
+        ? 'Ebben a beállításban ' + sorted[0].nev + ' ' + ft(gap) + '-tal kevesebbe kerül ' +
+          (isFirst ? 'az első évben.' : 'évente.')
+        : 'Ebben a beállításban a két útvonal ugyanannyiba kerül.';
+
+      renderChart(cats, per, max);
+      renderTable(cats, per, totals);
+    }
+
+    // Radio groups: one selected button per group, driven by aria-checked.
+    function wireRadios(selector, attr, key) {
+      var buttons = Array.prototype.slice.call(root.querySelectorAll(selector));
+      buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          buttons.forEach(function (b) { b.setAttribute('aria-checked', String(b === btn)); });
+          state[key] = btn.getAttribute(attr);
+          render();
+        });
+      });
+    }
+
+    wireRadios('.hc-chip', 'data-drug', 'drug');
+    wireRadios('[data-scope]', 'data-scope', 'scope');
+
+    // Visit cadence is per route, so each group only resets its own buttons.
+    DATA.utvonalak.forEach(function (r) {
+      var buttons = Array.prototype.slice.call(
+        root.querySelectorAll('[data-visit-route="' + r.id + '"]'));
+      buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          buttons.forEach(function (b) { b.setAttribute('aria-checked', String(b === btn)); });
+          state.visit[r.id] = btn.getAttribute('data-visit');
+          render();
+        });
+      });
+    });
+
+    function wireNumber(id, key, min, max) {
+      var input = document.getElementById(id);
+      input.addEventListener('input', function () {
+        var v = Number(input.value);
+        if (!isFinite(v)) { return; }
+        state[key] = Math.min(max, Math.max(min, v));
+        render();
+      });
+    }
+
+    wireNumber('hc-labor', 'labor', 0, 12);
+    wireNumber('hc-eur', 'eur', 1, 9999);
+
+    // Static price labels use the same formatter as the results, so every
+    // number on the page groups its thousands the same way.
+    DATA.gyogyszerek.forEach(function (g) {
+      var el = root.querySelector('[data-unit-price="' + g.id + '"]');
+      if (el) { el.textContent = unitLabel(g) + '/hó'; }
+    });
+    document.getElementById('hc-labor-hint').textContent = unitLabel(DATA.labor) + ' / alkalom';
+
+    window.addEventListener('resize', hideTooltip);
+    render();
+  })();
+</script>
