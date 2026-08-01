@@ -4,6 +4,9 @@ title = 'transznemu.hu'
 theme = 'PaperMod'
 
 [params]
+    # A címlapon az első bejegyzés is ugyanúgy nézzen ki, mint a többi (ne legyen kiemelve).
+    disableSpecial1stPost = true
+
     [params.betaBanner]
         enable = true
         # Növeld a verziót, ha a szöveg változik – akkor újra megjelenik azoknak is, akik már bezárták.
@@ -18,3 +21,8 @@ theme = 'PaperMod'
 name = 'Budikereső'
 url = '/budikereso/'
 weight = 10
+
+[[menu.main]]
+name = 'Az oldalról'
+url = '/az-oldalrol/'
+weight = 100
