@@ -1,0 +1,7 @@
+{{- /* Utolsó frissítés = a build ideje. Az oldal minden pusholt változásnál újraépül és deployol
+       (tartalom, layout és a Budikereső adatfrissítése is), így ez követi a tényleges frissítéseket.
+       Szándékosan nem oldalankénti .Lastmod: a footer partialCached, a per-oldal dátum
+       átszivárogna a közös cache-kulcsot használó oldalak közé. */ -}}
+<div class="footer footer-lastmod">
+    <span>Utolsó frissítés: <time datetime="{{ now.Format "2006-01-02" }}">{{ now.Format "2006. 01. 02." }}</time></span>
+</div>

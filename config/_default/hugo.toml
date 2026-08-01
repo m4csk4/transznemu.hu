@@ -4,6 +4,11 @@ title = 'transznemu.hu'
 theme = 'PaperMod'
 
 [params]
+    [params.betaBanner]
+        enable = true
+        # Növeld a verziót, ha a szöveg változik – akkor újra megjelenik azoknak is, akik már bezárták.
+        version = '1'
+        text = 'Ez az oldal még egy kísérleti változat. Vannak benne hibák és sokminden instabilan működik. A forráskód nem elhanyagolható része LLM asszisztálásával készült.'
     [params.footer]
         text = '[Forráskód](https://github.com/m4csk4/transznemu.hu)'
     [params.contact]

@@ -1,0 +1,6 @@
+/* Az extend_footer a <footer> után renderel, ezért a saját függőleges paddingját
+   visszahúzzuk, hogy a lábléc második sorának látsszon, ne külön blokknak. */
+.footer-lastmod {
+    padding-top: 0;
+    margin-top: calc((var(--footer-height) - var(--gap)) / -2);
+}

@@ -1,0 +1,39 @@
+{{- with site.Params.betaBanner }}
+{{- if ne .enable false }}
+{{- $version := .version | default "1" }}
+{{- $text := .text | default "Ez az oldal még béta változat: a tartalma hiányos lehet, és hibákat tartalmazhat." }}
+<div class="beta-banner" id="beta-banner" role="region" aria-label="Béta figyelmeztetés" data-version="{{ $version }}" hidden>
+    <div class="beta-banner-inner">
+        <p class="beta-banner-text">
+            <strong>Béta</strong> — {{ $text }}
+            {{- with site.Params.contact.email }}
+            <a href="mailto:{{ . }}?subject={{ printf "Hibajelzés – %s" site.Title }}">Írj, ha hibát találsz!</a>
+            {{- end }}
+        </p>
+        <button type="button" class="beta-banner-close" id="beta-banner-close" aria-label="Figyelmeztetés bezárása" title="Bezárás">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+            </svg>
+        </button>
+    </div>
+</div>
+<script>
+    (function () {
+        var banner = document.getElementById("beta-banner");
+        if (!banner) return;
+        var key = "beta-banner-dismissed";
+        var version = banner.dataset.version;
+        var stored = null;
+        try { stored = localStorage.getItem(key); } catch (e) { }
+        if (stored === version) return;
+        banner.hidden = false;
+        document.getElementById("beta-banner-close").addEventListener("click", function () {
+            banner.hidden = true;
+            try { localStorage.setItem(key, version); } catch (e) { }
+        });
+    })();
+</script>
+{{- end }}
+{{- end }}
