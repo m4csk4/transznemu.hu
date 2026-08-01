@@ -1,0 +1,1123 @@
+{{- define "main" }}
+
+{{- $d := hugo.Data.names }}
+
+{{- /* The three lists together are ~25 000 names. Shipping them inline would
+       bloat every page load of this article, so they go out as one fingerprinted
+       JSON file the browser fetches once and caches. Names travel newline-joined
+       rather than as JSON arrays — that alone saves ~40% of the payload.
+
+       `apply` pulls a field out of every element without a template loop; a
+       range/append over 24 000 items is quadratic and visibly slows the build. */}}
+{{- $family := slice }}
+{{- range $d.family }}
+  {{- $entry := dict
+        "id" .id
+        "label" .name
+        "names" (delimit (apply .names "index" "." "name") "\n") }}
+  {{- /* Only the first two collections carry bearer counts; MACSE is a bare
+         attestation list, so it ships without a counts array. */}}
+  {{- if (index (index .names 0) "number") }}
+    {{- $entry = merge $entry (dict "counts" (apply .names "index" "." "number")) }}
+  {{- end }}
+  {{- $family = $family | append $entry }}
+{{- end }}
+
+{{- $payload := dict
+      "updated" $d.women.updated
+      "women" (delimit $d.women.names "\n")
+      "men" (delimit $d.men.names "\n")
+      "family" $family }}
+{{- $data := resources.FromString "nevek/nevek.json" ($payload | jsonify) | fingerprint "md5" }}
+
+<article class="post-single">
+  <header class="post-header">
+    {{ partial "breadcrumbs.html" . }}
+    <h1 class="post-title entry-hint-parent">{{ .Title }}</h1>
+    {{- if .Description }}
+    <div class="post-description">{{ .Description }}</div>
+    {{- end }}
+  </header>
+
+  {{- if .Content }}
+  <div class="post-content">
+    {{ .Content }}
+  </div>
+  {{- end }}
+
+  <div class="nevek" id="nevek" data-src="{{ $data.RelPermalink }}">
+
+    <div class="nv-panel">
+      <div class="nv-field">
+        <span class="nv-legend">Milyen nevet keresel?</span>
+        <div class="nv-seg" role="radiogroup" aria-label="Milyen nevet keresel?">
+          <button type="button" class="nv-segbtn" role="radio" data-target="women" aria-checked="true">Női nevet</button>
+          <button type="button" class="nv-segbtn" role="radio" data-target="men" aria-checked="false">Férfi nevet</button>
+          <button type="button" class="nv-segbtn" role="radio" data-target="both" aria-checked="false">Mindegy</button>
+        </div>
+      </div>
+
+      <div class="nv-row">
+        <div class="nv-field">
+          <label class="nv-legend" for="nv-dead">A régi neved</label>
+          <select id="nv-dead" class="nv-select"></select>
+          <span class="nv-hint" id="nv-dead-hint"></span>
+        </div>
+      </div>
+
+      <div class="nv-filters">
+        <label class="nv-check"><input type="checkbox" id="nv-initial"> Csak azonos kezdőbetűvel</label>
+        <label class="nv-check"><input type="checkbox" id="nv-surname"> Csak amit vezetéknévként is használnak</label>
+      </div>
+    </div>
+
+    <div class="nv-detail" id="nv-detail" hidden></div>
+
+    <p class="nv-status" id="nv-status" role="status" aria-live="polite">Nevek betöltése…</p>
+    <div class="nv-grid" id="nv-grid"></div>
+    <button type="button" class="nv-more" id="nv-more" hidden>További nevek</button>
+
+    <details class="nv-cross" id="nv-cross">
+      <summary class="nv-cross-summary" id="nv-cross-summary">Vezetéknevek, amik utónevek is</summary>
+      <p class="nv-cross-lead" id="nv-cross-lead"></p>
+      <ul class="nv-cross-list" id="nv-cross-list"></ul>
+    </details>
+
+    <p class="nv-note">
+      Az utónevek az ELTE Nyelvtudományi Kutatóközpont
+      <a href="https://nytud.hu/torvenyes-utonevjegyzek" target="_blank" rel="noopener">törvényes
+        utónévjegyzékéből&nbsp;↗</a> származnak ({{ $d.women.updated }}-i állapot) — ami rajta van,
+      azt Magyarországon fel lehet venni.
+      A vezetéknév-adatok forrása a
+      <a href="https://hornyak.hu/csaladfa/Csaladnevek_enciklopediaja.pdf" target="_blank"
+        rel="noopener">Családnevek enciklopédiája&nbsp;↗</a> (PDF), a
+      <a href="https://forebears.io/hungary/surnames" target="_blank" rel="noopener">Forebears&nbsp;↗</a>
+      és a <a href="https://macse.hu/familiae/CsaladNevekLista.php" target="_blank" rel="noopener">MACSE&nbsp;↗</a>
+      családnév-adatbázisa. A hasonlóság gépi becslés — támpont, nem ítélet.
+    </p>
+  </div>
+</article>
+
+<link rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+  integrity="sha384-OXVF05DQEe311p6ohU11NwlnX08FzMCsyoXzGOaL+83dKAb3qS17yZJxESl8YrJQ"
+  crossorigin="anonymous" />
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha384-1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs"
+  crossorigin="anonymous"></script>
+<script
+  src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"
+  integrity="sha384-d3UHjPdzJkZuk5H3qKYMLRyWLAQBJbby2yr2Q58hXXtAGF8RSNO9jpLDlKKPv5v3"
+  crossorigin="anonymous"></script>
+
+<style>
+  /* select2 appends its dropdown to <body>, outside .nevek — so the variables
+     it needs have to live on :root, or the dropdown renders unthemed (in dark
+     mode: transparent, with the page showing through it). */
+  :root {
+    --nv-surface: var(--entry, #fff);
+    --nv-ink: var(--primary, #1e1e1e);
+    --nv-ink-2: var(--secondary, #6c6c6c);
+    --nv-line: var(--border, #eee);
+    --nv-accent: #4a3aa7;
+    --nv-wash: rgba(0, 0, 0, .05);
+  }
+
+  /* PaperMod resolves the OS preference into data-theme on <html> and keys its
+     own surface variables off that alone, so everything here follows the same
+     signal rather than prefers-color-scheme, or the two can disagree. */
+  :root[data-theme="dark"] {
+    --nv-accent: #9085e9;
+    --nv-wash: rgba(255, 255, 255, .07);
+  }
+
+  .nevek, .nv-s2, .nv-s2-drop { color-scheme: light; }
+  :root[data-theme="dark"] .nevek,
+  :root[data-theme="dark"] .nv-s2,
+  :root[data-theme="dark"] .nv-s2-drop { color-scheme: dark; }
+
+  .nevek { margin: 1.5rem 0; font-size: .95rem; }
+
+  /* ---- controls ---- */
+  .nv-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 8px;
+    background: var(--nv-surface);
+  }
+
+  .nv-legend {
+    display: block;
+    font-size: .78rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--nv-ink-2);
+    margin-bottom: .45rem;
+  }
+
+  .nv-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .nv-row .nv-field { flex: 1 1 15rem; min-width: 0; }
+
+  .nv-seg { display: inline-flex; border: 1px solid var(--nv-line); border-radius: 6px; overflow: hidden; }
+
+  .nv-segbtn {
+    padding: .4rem .75rem;
+    border: 0;
+    background: transparent;
+    color: var(--nv-ink-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: .88rem;
+  }
+
+  .nv-segbtn + .nv-segbtn { border-left: 1px solid var(--nv-line); }
+  .nv-segbtn[aria-checked="true"] { color: var(--nv-ink); font-weight: 600; background: var(--nv-wash); }
+  .nv-segbtn:hover { background: var(--nv-wash); }
+
+  .nv-segbtn:focus-visible, .nv-check:focus-within, .nv-more:focus-visible {
+    outline: 2px solid var(--nv-ink);
+    outline-offset: 2px;
+  }
+
+  .nv-hint { display: block; font-size: .78rem; color: var(--nv-ink-2); margin-top: .3rem; }
+
+  .nv-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.25rem;
+    font-size: .85rem;
+    color: var(--nv-ink-2);
+  }
+
+  .nv-check { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+  .nv-check input { accent-color: var(--nv-accent); margin: 0; }
+
+  /* Before select2 initialises, the bare <select> is the fallback control —
+     styling it keeps the panel from jumping when the widget takes over. */
+  .nv-select {
+    width: 100%;
+    padding: .4rem .5rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 6px;
+    background: var(--nv-surface);
+    color: var(--nv-ink);
+    font: inherit;
+  }
+
+  /* ---- select2 ---- */
+  /* The dropdown is appended to <body>, outside .nevek, so these rules key off
+     the classes select2 is told to add rather than off a parent.
+     4.1 dropped containerCssClass and only honours selectionCssClass, so
+     .nv-s2 lands on the selection box itself, not on the outer container. */
+  .select2-container--default .nv-s2.select2-selection--single {
+    height: auto;
+    padding: .1rem 0;
+    border: 1px solid var(--nv-line);
+    border-radius: 6px;
+    background: var(--nv-surface);
+  }
+
+  .select2-container--default .nv-s2.select2-selection--single .select2-selection__rendered {
+    color: var(--nv-ink);
+    line-height: 1.9;
+  }
+
+  .select2-container--default .nv-s2.select2-selection--single .select2-selection__placeholder {
+    color: var(--nv-ink-2);
+  }
+
+  .select2-container--default .nv-s2.select2-selection--single .select2-selection__arrow { height: 2.1rem; }
+
+  .select2-container--open .nv-s2.select2-selection--single,
+  .select2-container--focus .nv-s2.select2-selection--single {
+    border-color: var(--nv-accent);
+  }
+
+  .nv-s2-drop.select2-dropdown {
+    border-color: var(--nv-line);
+    background: var(--nv-surface);
+    color: var(--nv-ink);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .15);
+  }
+
+  /* PaperMod's article line-height reaches the dropdown too and spaces the rows
+     out until only four names fit. */
+  .nv-s2-drop .select2-results__options { max-height: 16rem; }
+
+  .nv-s2-drop .select2-results__option {
+    padding: .35rem .6rem;
+    font-size: .95rem;
+    line-height: 1.45;
+    word-break: normal;
+  }
+
+  .nv-s2-drop .select2-search--dropdown .select2-search__field {
+    border: 1px solid var(--nv-line);
+    border-radius: 4px;
+    background: var(--nv-surface);
+    color: var(--nv-ink);
+    font: inherit;
+    font-size: .95rem;
+  }
+
+  .nv-s2-drop .select2-results__option { color: var(--nv-ink); }
+
+  .nv-s2-drop.select2-container--default .select2-results__option--highlighted[aria-selected],
+  .nv-s2-drop .select2-results__option--highlighted {
+    background: var(--nv-accent) !important;
+    color: #fff !important;
+  }
+
+  .nv-s2-drop .select2-results__option[aria-selected="true"] { background: var(--nv-wash); }
+  .nv-s2-drop .select2-results__message { color: var(--nv-ink-2); }
+
+  /* The count of names hidden behind the result cap, shown as the last row. */
+  .nv-s2-more {
+    display: block;
+    font-size: .8rem;
+    color: var(--nv-ink-2);
+    font-style: italic;
+  }
+
+  /* ---- results ---- */
+  .nv-status { font-size: .85rem; color: var(--nv-ink-2); margin: 1.5rem 0 .6rem; }
+
+  .nv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: .75rem;
+  }
+
+  .nv-card {
+    display: flex;
+    flex-direction: column;
+    padding: .8rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 8px;
+    background: var(--nv-surface);
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .nv-card:hover, .nv-card:focus-visible { border-color: var(--nv-accent); }
+  .nv-card:focus-visible { outline: 2px solid var(--nv-ink); outline-offset: 2px; }
+
+  .nv-card-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem;
+  }
+
+  /* PaperMod's reset sets word-break: break-word globally, which snaps names
+     mid-word ("Adrie/nn") once a card gets narrow. */
+  .nv-name {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--nv-ink);
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  .nv-score {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--nv-ink-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .nv-meter {
+    height: 4px;
+    margin: .5rem 0 .55rem;
+    border-radius: 2px;
+    background: var(--nv-wash);
+    overflow: hidden;
+  }
+
+  .nv-meter span { display: block; height: 100%; background: var(--nv-accent); }
+
+  .nv-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+
+  .nv-chip {
+    padding: .12rem .45rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 999px;
+    font-size: .72rem;
+    color: var(--nv-ink-2);
+    word-break: normal;
+  }
+
+  /* Gender is a fact about which list a name came from, so it reads as a label
+     rather than as a score — outlined in the accent, never filled. */
+  .nv-chip[data-kind="gender"] { border-color: var(--nv-accent); color: var(--nv-accent); }
+
+  .nv-fam {
+    margin: .55rem 0 0;
+    font-size: .78rem;
+    line-height: 1.45;
+    color: var(--nv-ink-2);
+  }
+
+  .nv-fam[data-has="true"] { color: var(--nv-ink); }
+  .nv-fam strong { font-variant-numeric: tabular-nums; }
+
+  .nv-more {
+    display: block;
+    width: 100%;
+    margin-top: .75rem;
+    padding: .5rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--nv-ink);
+    cursor: pointer;
+    font: inherit;
+    font-size: .88rem;
+  }
+
+  /* An author-level `display` outranks the UA sheet's [hidden] { display: none },
+     so the attribute has to be honoured explicitly or the button never hides. */
+  .nv-more[hidden] { display: none; }
+  .nv-more:hover { background: var(--nv-wash); }
+
+  /* ---- detail ---- */
+  .nv-detail {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--nv-line);
+    border-left: 3px solid var(--nv-accent);
+    border-radius: 8px;
+    background: var(--nv-surface);
+  }
+
+  .nv-detail-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: .6rem;
+  }
+
+  .nv-detail-name {
+    margin: 0;
+    font-size: clamp(1.4rem, 5vw, 1.9rem);
+    line-height: 1.15;
+    color: var(--nv-ink);
+    word-break: normal;
+  }
+
+  .nv-detail-sub { font-size: .85rem; color: var(--nv-ink-2); }
+  .nv-detail .nv-chips { margin-top: .6rem; }
+
+  .nv-sources {
+    margin: .9rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  .nv-source {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: .6rem;
+    padding: .4rem .55rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 6px;
+    font-size: .82rem;
+  }
+
+  .nv-source-name { color: var(--nv-ink-2); word-break: normal; }
+  .nv-source-val { color: var(--nv-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .nv-source[data-hit="false"] { opacity: .55; }
+
+  .nv-close {
+    margin-top: .8rem;
+    padding: .3rem .6rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--nv-ink-2);
+    cursor: pointer;
+    font: inherit;
+    font-size: .8rem;
+  }
+
+  .nv-close:hover { background: var(--nv-wash); }
+
+  /* ---- surnames that double as given names ---- */
+  /* Hundreds of entries for the men's list, and they answer a different
+     question than the suggestions do — so they stay folded away until asked for. */
+  .nv-cross {
+    margin-top: 1.5rem;
+    padding: .75rem 1rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 8px;
+    background: var(--nv-surface);
+  }
+
+  .nv-cross-summary {
+    cursor: pointer;
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--nv-ink);
+  }
+
+  .nv-cross-summary:focus-visible { outline: 2px solid var(--nv-ink); outline-offset: 2px; }
+  .nv-cross-lead { margin: .6rem 0 .75rem; font-size: .8rem; line-height: 1.5; color: var(--nv-ink-2); }
+
+  .nv-cross-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+    gap: .35rem;
+  }
+
+  .nv-cross-item {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    width: 100%;
+    padding: .35rem .5rem;
+    border: 1px solid var(--nv-line);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--nv-ink);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .nv-cross-item:hover { background: var(--nv-wash); border-color: var(--nv-accent); }
+  .nv-cross-item:focus-visible { outline: 2px solid var(--nv-ink); outline-offset: 2px; }
+  .nv-cross-name { font-size: .88rem; font-weight: 600; word-break: normal; }
+
+  .nv-cross-meta {
+    font-size: .72rem;
+    color: var(--nv-ink-2);
+    font-variant-numeric: tabular-nums;
+    word-break: normal;
+  }
+
+  .nv-note { font-size: .8rem; color: var(--nv-ink-2); line-height: 1.6; margin-top: 1.5rem; }
+</style>
+
+<script>
+  (function () {
+    var root = document.getElementById('nevek');
+    if (!root) { return; }
+
+    var statusEl = document.getElementById('nv-status');
+    var gridEl = document.getElementById('nv-grid');
+    var moreEl = document.getElementById('nv-more');
+    var detailEl = document.getElementById('nv-detail');
+    var crossEl = document.getElementById('nv-cross');
+    var crossListEl = document.getElementById('nv-cross-list');
+
+    var PAGE = 24;      // cards per "További nevek" step
+    var LIST_CAP = 60;  // results select2 renders per search
+
+    var state = {
+      target: 'women',  // which list we suggest from
+      dead: '',         // the name we are matching against
+      look: '',         // the name currently open in the detail panel
+      initialOnly: false,
+      surnameOnly: false,
+      shown: PAGE
+    };
+
+    var DATA = null;     // parsed payload
+    var NAMES = {};      // women / men / both -> array of names
+    var GENDER = {};     // name -> 'women' | 'men' | 'both'
+    var SOURCES = [];    // surname collections, each with a lookup Map
+    var KEY = {};        // name -> phonetic key, memoised
+    var STEM = {};       // name -> key with its trailing vowels stripped
+
+    var fmt = new Intl.NumberFormat('hu-HU');
+
+    /* ---- Hungarian-aware normalisation ----
+       Comparing raw letters would call "Zsanett" and "Zoltán" close (both start
+       with z) while missing that "Mátyás" and "Matild" share a sound. So names
+       are first folded to one letter per Hungarian phoneme: the digraphs
+       collapse to single markers, ly and j merge (they are homophones), length
+       marks on vowels drop, and doubled letters collapse. */
+    var DIGRAPH = {
+      dzs: 'Q', dz: 'q', cs: 'C', zs: 'Z', sz: 'S',
+      gy: 'G', ty: 'T', ny: 'N', ly: 'j'
+    };
+
+    function fold(s) {
+      return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function phonetic(name) {
+      if (KEY[name] !== undefined) { return KEY[name]; }
+      var s = fold(name).replace(/[^a-z]/g, '');
+      s = s.replace(/w/g, 'v').replace(/x/g, 'ksz').replace(/q/g, 'k');
+      s = s.replace(/dzs|dz|cs|zs|sz|gy|ty|ny|ly/g, function (m) { return DIGRAPH[m]; });
+      s = s.replace(/y/g, 'i');
+      s = s.replace(/(.)\1+/g, '$1');
+      KEY[name] = s;
+      return s;
+    }
+
+    /* Hungarian marks gender on the ending far more than on the stem — Márton /
+       Márta, Péter / Petra, András / Andrea. Stripping the trailing vowels
+       leaves the part the two share, which is what makes a name feel like "the
+       same name, other side". */
+    function stem(name) {
+      if (STEM[name] !== undefined) { return STEM[name]; }
+      var k = phonetic(name);
+      var s = k.replace(/[aeiou]+$/, '');
+      STEM[name] = s.length >= 2 ? s : k;
+      return STEM[name];
+    }
+
+    function vowelCount(k) {
+      var m = k.match(/[aeiou]/g);
+      return m ? m.length : 0;
+    }
+
+    function commonPrefix(a, b) {
+      var n = Math.min(a.length, b.length), i = 0;
+      while (i < n && a.charAt(i) === b.charAt(i)) { i++; }
+      return i;
+    }
+
+    function commonSuffix(a, b) {
+      var n = Math.min(a.length, b.length), i = 0;
+      while (i < n && a.charAt(a.length - 1 - i) === b.charAt(b.length - 1 - i)) { i++; }
+      return i;
+    }
+
+    function jaro(a, b) {
+      if (!a.length || !b.length) { return 0; }
+      if (a === b) { return 1; }
+      var window = Math.max(0, Math.floor(Math.max(a.length, b.length) / 2) - 1);
+      var aFlags = new Array(a.length), bFlags = new Array(b.length), matches = 0;
+
+      for (var i = 0; i < a.length; i++) {
+        var lo = Math.max(0, i - window), hi = Math.min(i + window + 1, b.length);
+        for (var j = lo; j < hi; j++) {
+          if (!bFlags[j] && b.charAt(j) === a.charAt(i)) {
+            aFlags[i] = bFlags[j] = true;
+            matches++;
+            break;
+          }
+        }
+      }
+      if (!matches) { return 0; }
+
+      var transpositions = 0, k = 0;
+      for (var x = 0; x < a.length; x++) {
+        if (!aFlags[x]) { continue; }
+        while (!bFlags[k]) { k++; }
+        if (a.charAt(x) !== b.charAt(k)) { transpositions++; }
+        k++;
+      }
+      transpositions /= 2;
+
+      return (matches / a.length + matches / b.length +
+        (matches - transpositions) / matches) / 3;
+    }
+
+    function jaroWinkler(a, b) {
+      var j = jaro(a, b);
+      if (j < 0.7) { return j; }
+      return j + Math.min(4, commonPrefix(a, b)) * 0.1 * (1 - j);
+    }
+
+    // Bigram overlap — catches shared sound clusters that sit anywhere in the
+    // name, where prefix and stem only look at the two ends.
+    function dice(a, b) {
+      if (a.length < 2 || b.length < 2) { return a === b ? 1 : 0; }
+      var seen = {}, total = 0, hits = 0, i;
+      for (i = 0; i < a.length - 1; i++) {
+        var g = a.substr(i, 2);
+        seen[g] = (seen[g] || 0) + 1;
+      }
+      for (i = 0; i < b.length - 1; i++) {
+        var h = b.substr(i, 2);
+        total++;
+        if (seen[h] > 0) { seen[h]--; hits++; }
+      }
+      return (2 * hits) / ((a.length - 1) + total);
+    }
+
+    /* The four measures answer different questions — how alike overall
+       (Jaro-Winkler), how much of the opening is shared, how many sounds recur
+       anywhere, and whether the stem is the same name. The stem carries as much
+       weight as overall likeness because a gendered counterpart is usually what
+       someone is after. */
+    function score(a, b) {
+      var ka = phonetic(a), kb = phonetic(b);
+      if (!ka || !kb) { return 0; }
+      var lcp = commonPrefix(ka, kb);
+      var s = 0.30 * jaroWinkler(ka, kb) +
+        0.25 * (lcp / Math.max(ka.length, kb.length)) +
+        0.15 * dice(ka, kb) +
+        0.30 * jaroWinkler(stem(a), stem(b));
+
+      if (ka.charAt(0) === kb.charAt(0)) { s += 0.04; }
+      if (vowelCount(ka) === vowelCount(kb)) { s += 0.02; }
+      if (Math.abs(ka.length - kb.length) <= 1) { s += 0.02; }
+      return Math.min(1, s);
+    }
+
+    // Short, human labels for why a name surfaced — the number alone says
+    // "82%" without ever saying what is alike about the two names.
+    function reasons(a, b) {
+      var ka = phonetic(a), kb = phonetic(b), out = [];
+      if (fold(a).charAt(0) === fold(b).charAt(0)) { out.push('azonos kezdőbetű'); }
+      if (jaroWinkler(stem(a), stem(b)) >= 0.88) { out.push('azonos névtő'); }
+      if (commonPrefix(ka, kb) >= 3) { out.push('közös névkezdet'); }
+      if (commonSuffix(ka, kb) >= 2) { out.push('hasonló végződés'); }
+      if (vowelCount(ka) === vowelCount(kb)) { out.push(vowelCount(ka) + ' szótag'); }
+      return out;
+    }
+
+    /* ---- surname collections ---- */
+    // A name counts as usable as a surname when it is spelled exactly like one
+    // that is attested, so the lookup key is the plain lowercase form — accent
+    // folding here would let "Bori" match a "Bóri" that nobody is actually called.
+    function famLookup(name) {
+      var k = name.toLowerCase();
+      return SOURCES.map(function (src) {
+        var hit = src.index[k];
+        return {
+          src: src,
+          hit: hit !== undefined,
+          rank: hit !== undefined ? hit + 1 : 0,
+          count: hit !== undefined && src.counts ? src.counts[hit] : null
+        };
+      });
+    }
+
+    function famBest(rows) {
+      var counted = rows.filter(function (r) { return r.hit && r.count; });
+      if (counted.length) {
+        return counted.sort(function (x, y) { return y.count - x.count; })[0];
+      }
+      return rows.filter(function (r) { return r.hit; })[0] || null;
+    }
+
+    function famText(name) {
+      var best = famBest(famLookup(name));
+      if (!best) { return null; }
+      if (best.count) {
+        return 'Vezetéknévként is: <strong>' + fmt.format(best.count) + '</strong> viselő, ' +
+          'a leggyakoribb ' + fmt.format(best.src.length) + ' magyar vezetéknév közt a ' +
+          best.rank + '.';
+      }
+      return 'Vezetéknévként is előfordul (' + esc(best.src.label) + ').';
+    }
+
+    function isSurname(name) {
+      return famLookup(name).some(function (r) { return r.hit; });
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+
+    /* ---- select2 wiring ---- */
+    var HU = {
+      noResults: function () { return 'Nincs ilyen név a listán'; },
+      searching: function () { return 'Keresés…'; },
+      removeAllItems: function () { return 'Választás törlése'; },
+      errorLoading: function () { return 'A nevek nem töltődtek be'; }
+    };
+
+    // The lists run to a few thousand names, and select2 renders every match it
+    // is handed. Filtering and capping here keeps a one-letter search from
+    // building 2000 DOM rows; the tail is reported instead of silently dropped.
+    function searchNames(list, term) {
+      var raw = term.trim().toLowerCase();
+      var q = fold(raw);
+      // The register holds accent variants of the same name side by side
+      // (Marton and Márton both exist), so what was typed letter for letter has
+      // to come first — otherwise Enter picks the variant nobody asked for.
+      var exact = [], loose = [], starts = [], contains = [], i, f;
+
+      for (i = 0; i < list.length; i++) {
+        f = fold(list[i]);
+        if (!q) { starts.push(list[i]); }
+        else if (list[i].toLowerCase() === raw) { exact.push(list[i]); }
+        else if (f === q) { loose.push(list[i]); }
+        else if (f.indexOf(q) === 0) { starts.push(list[i]); }
+        else if (f.indexOf(q) > -1) { contains.push(list[i]); }
+        if (!q && starts.length >= LIST_CAP) { break; }
+      }
+
+      var all = exact.concat(loose, starts, contains);
+      var results = all.slice(0, LIST_CAP).map(function (n) {
+        return { id: n, text: n };
+      });
+      if (all.length > LIST_CAP) {
+        results.push({
+          id: '__more__',
+          text: '+' + fmt.format(all.length - LIST_CAP) + ' további találat — írj be többet',
+          disabled: true,
+          more: true
+        });
+      }
+      return results;
+    }
+
+    function initSelect(id, placeholder, source, onChange) {
+      var $el = jQuery('#' + id);
+      $el.select2({
+        placeholder: placeholder,
+        allowClear: true,
+        language: HU,
+        width: '100%',
+        selectionCssClass: 'nv-s2',
+        dropdownCssClass: 'nv-s2-drop',
+        // Free text stays allowed: plenty of people's old name is a foreign one
+        // that never appears on the Hungarian register.
+        tags: true,
+        createTag: function (params) {
+          var t = jQuery.trim(params.term);
+          if (!t) { return null; }
+          // A tag that duplicates a name already on the list would shadow it —
+          // and, being first in the results, would be what Enter selects.
+          var dup = source().some(function (n) { return fold(n) === fold(t); });
+          return dup ? null : { id: t, text: t };
+        },
+        // Push the free-text option to the bottom so the list entries stay the
+        // ones you reach by typing and hitting Enter.
+        insertTag: function (data, tag) { data.push(tag); },
+        templateResult: function (item) {
+          if (!item.more) { return item.text; }
+          return jQuery('<span class="nv-s2-more"></span>').text(item.text);
+        },
+        ajax: {
+          delay: 0,
+          transport: function (params, success) {
+            success({ results: searchNames(source(), params.data.q || '') });
+          }
+        }
+      });
+      // An empty <option> is what lets allowClear show the placeholder at all.
+      $el.append(new Option('', '', true, true)).trigger('change.select2');
+      $el.on('change', function () {
+        var v = $el.val() || '';
+        onChange(v === '__more__' ? '' : v);
+      });
+      return $el;
+    }
+
+    /* ---- rendering ---- */
+    function candidates() {
+      var list = NAMES[state.target];
+      if (!state.dead) { return []; }
+      var deadKey = fold(state.dead);
+      var deadInitial = deadKey.charAt(0);
+
+      var scored = [];
+      for (var i = 0; i < list.length; i++) {
+        var n = list[i];
+        if (fold(n) === deadKey) { continue; }
+        if (state.initialOnly && fold(n).charAt(0) !== deadInitial) { continue; }
+        if (state.surnameOnly && !isSurname(n)) { continue; }
+        scored.push({ name: n, score: score(state.dead, n) });
+      }
+      // Ties break alphabetically so the order is stable between renders.
+      scored.sort(function (x, y) {
+        return y.score - x.score || x.name.localeCompare(y.name, 'hu');
+      });
+      return scored;
+    }
+
+    function chip(text, kind) {
+      return '<li class="nv-chip"' + (kind ? ' data-kind="' + kind + '"' : '') + '>' +
+        esc(text) + '</li>';
+    }
+
+    function genderLabel(name) {
+      var g = GENDER[name];
+      return g === 'both' ? 'női és férfi név' : g === 'men' ? 'férfinév' : 'női név';
+    }
+
+    function card(entry) {
+      var pct = Math.round(entry.score * 100);
+      var chips = reasons(state.dead, entry.name).slice(0, 3).map(function (r) {
+        return chip(r);
+      });
+      // Which list a name came from only needs saying when both are in play.
+      if (state.target === 'both') { chips.unshift(chip(genderLabel(entry.name), 'gender')); }
+
+      var fam = famText(entry.name);
+      // role=button rather than a real <button>: the card carries a list of
+      // chips, which a button may not contain. The aria-label restates the whole
+      // card, since role=button makes its children presentational.
+      return '<div class="nv-card" role="button" tabindex="0" data-name="' + esc(entry.name) + '"' +
+        ' aria-label="' + esc(entry.name + ' — ' + pct + '% egyezés. ' +
+          (fam ? fam.replace(/<[^>]+>/g, '') : 'Vezetéknévként nem szerepel a listákon.')) + '">' +
+        '<span class="nv-card-top">' +
+          '<span class="nv-name">' + esc(entry.name) + '</span>' +
+          '<span class="nv-score">' + pct + '%</span>' +
+        '</span>' +
+        '<span class="nv-meter"><span style="width:' + pct + '%"></span></span>' +
+        '<ul class="nv-chips">' + chips.join('') + '</ul>' +
+        '<span class="nv-fam" data-has="' + (fam ? 'true' : 'false') + '">' +
+          (fam || 'Vezetéknévként nem szerepel a listákon.') + '</span>' +
+        '</div>';
+    }
+
+    function renderDetail(name) {
+      if (!name) { detailEl.hidden = true; detailEl.innerHTML = ''; return; }
+
+      var rows = famLookup(name).map(function (r) {
+        var value = !r.hit ? 'nem szerepel'
+          : r.count ? fmt.format(r.count) + ' viselő · ' + r.rank + '. hely'
+          : 'szerepel';
+        return '<li class="nv-source" data-hit="' + r.hit + '">' +
+          '<span class="nv-source-name">' + esc(r.src.label) + '</span>' +
+          '<span class="nv-source-val">' + value + '</span></li>';
+      });
+
+      var sub = GENDER[name] ? genderLabel(name) + ' · anyakönyvezhető' : 'nincs az utónévjegyzéken';
+      var chips = [];
+      if (state.dead && fold(state.dead) !== fold(name)) {
+        chips.push(chip(Math.round(score(state.dead, name) * 100) + '% egyezés ezzel: ' + state.dead));
+        reasons(state.dead, name).forEach(function (r) { chips.push(chip(r)); });
+      }
+
+      detailEl.innerHTML =
+        '<div class="nv-detail-head">' +
+          '<h2 class="nv-detail-name">' + esc(name) + '</h2>' +
+          '<span class="nv-detail-sub">' + esc(sub) + '</span>' +
+        '</div>' +
+        (chips.length ? '<ul class="nv-chips">' + chips.join('') + '</ul>' : '') +
+        '<ul class="nv-sources">' + rows.join('') + '</ul>' +
+        '<button type="button" class="nv-close" id="nv-close">Bezárás</button>';
+      detailEl.hidden = false;
+
+      document.getElementById('nv-close').addEventListener('click', function () {
+        state.look = '';
+        renderDetail('');
+      });
+    }
+
+    /* ---- surnames that are also given names ---- */
+    // Depends on nothing but the chosen gender, so the result is kept per target
+    // rather than recomputed on every filter or keystroke.
+    var crossCache = {};
+
+    function crossNames() {
+      if (crossCache[state.target]) { return crossCache[state.target]; }
+      var out = [];
+      NAMES[state.target].forEach(function (n) {
+        var best = famBest(famLookup(n));
+        if (best) { out.push({ name: n, count: best.count, label: best.src.label }); }
+      });
+      // Counted names first, most bearers down; the attested-only ones have no
+      // figure to rank by, so they follow in alphabetical order.
+      out.sort(function (a, b) {
+        if (a.count && b.count) { return b.count - a.count; }
+        if (a.count) { return -1; }
+        if (b.count) { return 1; }
+        return a.name.localeCompare(b.name, 'hu');
+      });
+      crossCache[state.target] = out;
+      return out;
+    }
+
+    var crossRendered = null;
+
+    function renderCross() {
+      // Nothing but the gender moves this list, and it runs to a few hundred
+      // entries — no reason to rebuild it on every keystroke.
+      if (crossRendered === state.target) { return; }
+      crossRendered = state.target;
+
+      var list = crossNames();
+      var kind = state.target === 'men' ? 'férfi utónév'
+        : state.target === 'both' ? 'utónév' : 'női utónév';
+
+      document.getElementById('nv-cross-summary').textContent =
+        fmt.format(list.length) + ' vezetéknév, ami ' + kind + ' is';
+      document.getElementById('nv-cross-lead').textContent =
+        'Ezek mindegyike szerepel valamelyik családnév-gyűjteményben és az anyakönyvezhető ' +
+        'utónevek közt is. Kattints rá, és megnézheted, hány viselője van.';
+
+      crossListEl.innerHTML = list.map(function (e) {
+        // Only the attestation-only collection reaches the else branch, and its
+        // full title repeated down a few hundred tiles is all noise — the first
+        // word ("MACSE") says which list it was without the drone.
+        var meta = e.count ? fmt.format(e.count) + ' viselő' : e.label.split(' ')[0];
+        return '<li><button type="button" class="nv-cross-item" data-name="' + esc(e.name) + '">' +
+          '<span class="nv-cross-name">' + esc(e.name) + '</span>' +
+          '<span class="nv-cross-meta">' + esc(meta) + '</span>' +
+          '</button></li>';
+      }).join('');
+    }
+
+    function render() {
+      if (!DATA) { return; }
+      renderDetail(state.look);
+      renderCross();
+
+      if (!state.dead) {
+        gridEl.innerHTML = '';
+        moreEl.hidden = true;
+        statusEl.textContent = 'Írd be a régi neved, és megnézzük, milyen ' +
+          (state.target === 'men' ? 'férfinevek' :
+            state.target === 'both' ? 'nevek' : 'női nevek') +
+          ' hangzanak hozzá hasonlóan.';
+        return;
+      }
+
+      var list = candidates();
+      var shown = Math.min(state.shown, list.length);
+      gridEl.innerHTML = list.slice(0, shown).map(card).join('');
+
+      statusEl.textContent = list.length
+        ? list.length + ' név ' + state.dead + ' alapján — a leghasonlóbb ' + shown + ' látszik'
+        : 'Ezekkel a szűrőkkel nincs találat.';
+      moreEl.hidden = shown >= list.length;
+      moreEl.textContent = 'További nevek (' + Math.min(PAGE, list.length - shown) + ')';
+    }
+
+    /* ---- data ---- */
+    function build(payload) {
+      DATA = payload;
+      NAMES.women = payload.women.split('\n');
+      NAMES.men = payload.men.split('\n');
+
+      // 'both' is the merged register, deduplicated — a fair number of names are
+      // on the women's and the men's list alike.
+      var seen = {};
+      NAMES.both = [];
+      NAMES.women.forEach(function (n) { GENDER[n] = 'women'; });
+      NAMES.men.forEach(function (n) { GENDER[n] = GENDER[n] ? 'both' : 'men'; });
+      NAMES.women.concat(NAMES.men).forEach(function (n) {
+        if (!seen[n]) { seen[n] = true; NAMES.both.push(n); }
+      });
+      NAMES.both.sort(function (a, b) { return a.localeCompare(b, 'hu'); });
+
+      SOURCES = payload.family.map(function (s) {
+        var names = s.names.split('\n');
+        var index = {};
+        // First occurrence wins, so the rank reported is the best one a spelling
+        // reaches in that collection.
+        for (var i = 0; i < names.length; i++) {
+          var k = names[i].toLowerCase();
+          if (index[k] === undefined) { index[k] = i; }
+        }
+        return { id: s.id, label: s.label, index: index, counts: s.counts || null, length: names.length };
+      });
+    }
+
+    function deadSource() {
+      // Suggestions come from the target list, so the old name is picked from
+      // the other one.
+      return state.target === 'women' ? NAMES.men
+        : state.target === 'men' ? NAMES.women
+        : NAMES.both;
+    }
+
+    function wire() {
+      var deadHint = document.getElementById('nv-dead-hint');
+
+      initSelect('nv-dead', 'Kezdd el gépelni…', deadSource, function (v) {
+        state.dead = v;
+        state.shown = PAGE;
+        render();
+      });
+
+      function setHint() {
+        deadHint.textContent = state.target === 'both'
+          ? 'Bármelyik névből indulhatunk. Ha nincs a listán, gépeld be.'
+          : 'A ' + (state.target === 'women' ? 'férfi' : 'női') +
+            ' utónévjegyzékből — ha nincs rajta, gépeld be.';
+      }
+
+      var segs = Array.prototype.slice.call(root.querySelectorAll('.nv-segbtn'));
+      segs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          segs.forEach(function (b) { b.setAttribute('aria-checked', String(b === btn)); });
+          state.target = btn.getAttribute('data-target');
+          state.shown = PAGE;
+          setHint();
+          render();
+        });
+      });
+      setHint();
+
+      function wireCheck(id, key) {
+        document.getElementById(id).addEventListener('change', function () {
+          state[key] = this.checked;
+          state.shown = PAGE;
+          render();
+        });
+      }
+      wireCheck('nv-initial', 'initialOnly');
+      wireCheck('nv-surname', 'surnameOnly');
+
+      moreEl.addEventListener('click', function () {
+        state.shown += PAGE;
+        render();
+      });
+
+      // A card and a cross-list entry both open the same detail panel.
+      function open(el) {
+        state.look = el.getAttribute('data-name');
+        renderDetail(state.look);
+        detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+
+      function wireOpen(container, selector) {
+        container.addEventListener('click', function (ev) {
+          var el = ev.target.closest ? ev.target.closest(selector) : null;
+          if (el) { open(el); }
+        });
+      }
+
+      wireOpen(gridEl, '.nv-card');
+      wireOpen(crossEl, '.nv-cross-item');
+
+      // The cross-list entries are real buttons; the cards carry role="button",
+      // which brings no key handling of its own, so Enter and Space have to be
+      // wired up by hand to match what a real button would do.
+      gridEl.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Enter' && ev.key !== ' ') { return; }
+        var el = ev.target.closest ? ev.target.closest('.nv-card') : null;
+        if (!el) { return; }
+        ev.preventDefault();
+        open(el);
+      });
+    }
+
+    fetch(root.getAttribute('data-src'))
+      .then(function (r) {
+        if (!r.ok) { throw new Error(r.status); }
+        return r.json();
+      })
+      .then(function (payload) {
+        build(payload);
+        wire();
+        render();
+      })
+      .catch(function () {
+        statusEl.textContent = 'A névlistát nem sikerült betölteni. Próbáld újra később.';
+      });
+  })();
+</script>
+
+{{- end }}
