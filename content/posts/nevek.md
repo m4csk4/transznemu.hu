@@ -7,4 +7,4 @@ ShowReadingTime = false
 ShowShareButtons = false
 +++
 
-A névválasztás nagyon személyes dolog, és semmilyen lista nem tudja megmondani, melyik név a tiéd. Ez az eszköz csak ötleteket ad: megnézi, hogy a régi nevedhez hangzásban mely anyakönyvezhető nevek állnak közel, és megmutatja, ha egy név vezetéknévként is használatos.
+Ez egy egyszerű kis eszköz, ami név-keresésben segíthet. Fontos megjegyezni, hogy senkinek nem kell az itt kidobott nevek közül választania. Ez csak egy támpont próbál lenni azoknak, akik az eredetileg anyakönyvezett nevükhöz hasonló, vagy vezetéknévként is használt nevet keresnek.
