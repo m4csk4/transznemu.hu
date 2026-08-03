@@ -7,6 +7,14 @@ theme = 'PaperMod'
     # A címlapon az első bejegyzés is ugyanúgy nézzen ki, mint a többi (ne legyen kiemelve).
     disableSpecial1stPost = true
 
+    [params.assets]
+        # Egyetlen PNG minden ikonméretre – így nincs 404 a téma alapértelmezett útvonalaira.
+        favicon = '/favicon.png'
+        favicon16x16 = '/favicon.png'
+        favicon32x32 = '/favicon.png'
+        apple_touch_icon = '/favicon.png'
+        safari_pinned_tab = '/favicon.png'
+
     [params.betaBanner]
         enable = true
         # Növeld a verziót, ha a szöveg változik – akkor újra megjelenik azoknak is, akik már bezárták.
