@@ -23,6 +23,11 @@ url = '/budikereso/'
 weight = 10
 
 [[menu.main]]
+name = 'Hang'
+url = 'https://hang.transznemu.hu/'
+weight = 20
+
+[[menu.main]]
 name = 'Az oldalról'
 url = '/az-oldalrol/'
 weight = 100
