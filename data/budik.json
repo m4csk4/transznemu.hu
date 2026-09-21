@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-07",
+  "updated": "2026-09-21",
   "toilets": [
     {
       "name": "Auchan",
@@ -539,14 +539,14 @@
       ],
       "disposal": null,
       "menstrual_products": null,
-      "wheelchair": null,
+      "wheelchair": "yes",
       "layer": null,
       "access": "yes",
       "opening_hours": "24/7",
       "website": null,
       "description": null,
       "checked": null,
-      "edited": "2025-07-03T12:55:35Z",
+      "edited": "2026-09-19T15:37:50Z",
       "osm_type": "node",
       "osm_id": 12973739408
     },
@@ -3249,8 +3249,8 @@
       "opening_hours": "Mo-Su 08:00-20:00",
       "website": null,
       "description": null,
-      "checked": null,
-      "edited": "2020-05-07T16:33:03Z",
+      "checked": "2026-09-16",
+      "edited": "2026-09-16T14:46:45Z",
       "osm_type": "node",
       "osm_id": 7494697444
     },
@@ -4513,27 +4513,6 @@
       "edited": "2022-10-11T20:46:43Z",
       "osm_type": "node",
       "osm_id": 9664314980
-    },
-    {
-      "name": "Nyilvános mosdó",
-      "lat": 47.4716729,
-      "lng": 19.0452608,
-      "address": "",
-      "fee": "no",
-      "charge": null,
-      "payment": [],
-      "disposal": "chemical",
-      "menstrual_products": null,
-      "wheelchair": "no",
-      "layer": null,
-      "access": "yes",
-      "opening_hours": null,
-      "website": null,
-      "description": null,
-      "checked": null,
-      "edited": "2025-04-01T17:04:09Z",
-      "osm_type": "node",
-      "osm_id": 9690322905
     },
     {
       "name": "Nyilvános mosdó",
@@ -6849,11 +6828,11 @@
       "wheelchair": "yes",
       "layer": null,
       "access": null,
-      "opening_hours": null,
+      "opening_hours": "24/7",
       "website": null,
       "description": null,
       "checked": null,
-      "edited": "2024-04-19T07:39:11Z",
+      "edited": "2026-09-12T09:43:12Z",
       "osm_type": "way",
       "osm_id": 962619510
     },
@@ -7816,7 +7795,7 @@
     },
     {
       "name": "Nyilvános mosdó",
-      "lat": 47.4735642,
+      "lat": 47.4735615,
       "lng": 19.0595282,
       "address": "",
       "fee": "no",
@@ -7831,7 +7810,7 @@
       "website": null,
       "description": null,
       "checked": null,
-      "edited": "2026-03-08T20:38:03Z",
+      "edited": "2026-09-11T14:44:23Z",
       "osm_type": "way",
       "osm_id": 1452841583
     },
@@ -7981,6 +7960,27 @@
       "edited": "2026-07-29T21:30:26Z",
       "osm_type": "way",
       "osm_id": 1545859475
+    },
+    {
+      "name": "Nyilvános mosdó",
+      "lat": 47.4732476,
+      "lng": 19.0598247,
+      "address": "",
+      "fee": null,
+      "charge": null,
+      "payment": [],
+      "disposal": null,
+      "menstrual_products": null,
+      "wheelchair": "yes",
+      "layer": null,
+      "access": null,
+      "opening_hours": null,
+      "website": null,
+      "description": null,
+      "checked": null,
+      "edited": "2026-09-11T15:33:08Z",
+      "osm_type": "way",
+      "osm_id": 1558147493
     },
     {
       "name": "Nyilvános mosdó",
