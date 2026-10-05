@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-21",
+  "updated": "2026-10-05",
   "toilets": [
     {
       "name": "Auchan",
@@ -468,12 +468,12 @@
       "menstrual_products": null,
       "wheelchair": "no",
       "layer": null,
-      "access": null,
+      "access": "yes",
       "opening_hours": "Mo-Su 06:00-22:00",
       "website": null,
       "description": null,
       "checked": "2025-09-02",
-      "edited": "2026-08-15T00:09:02Z",
+      "edited": "2026-10-02T17:06:28Z",
       "osm_type": "node",
       "osm_id": 2306721403
     },
@@ -5998,7 +5998,7 @@
       "lat": 47.5015318,
       "lng": 19.0753695,
       "address": "",
-      "fee": "yes",
+      "fee": "no",
       "charge": null,
       "payment": [],
       "disposal": null,
@@ -6010,7 +6010,7 @@
       "website": null,
       "description": null,
       "checked": null,
-      "edited": "2016-05-15T12:02:22Z",
+      "edited": "2026-09-29T06:52:42Z",
       "osm_type": "way",
       "osm_id": 374844687
     },
@@ -7981,6 +7981,27 @@
       "edited": "2026-09-11T15:33:08Z",
       "osm_type": "way",
       "osm_id": 1558147493
+    },
+    {
+      "name": "Nyilvános mosdó",
+      "lat": 47.4810578,
+      "lng": 19.0548975,
+      "address": "",
+      "fee": null,
+      "charge": null,
+      "payment": [],
+      "disposal": null,
+      "menstrual_products": null,
+      "wheelchair": "yes",
+      "layer": null,
+      "access": null,
+      "opening_hours": null,
+      "website": null,
+      "description": null,
+      "checked": null,
+      "edited": "2026-10-01T09:22:17Z",
+      "osm_type": "way",
+      "osm_id": 1564033995
     },
     {
       "name": "Nyilvános mosdó",
