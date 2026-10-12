@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05",
+  "updated": "2026-10-12",
   "toilets": [
     {
       "name": "Auchan",
@@ -1424,27 +1424,6 @@
       "edited": "2024-09-21T11:16:28Z",
       "osm_type": "node",
       "osm_id": 3690390633
-    },
-    {
-      "name": "Nyilvános mosdó",
-      "lat": 48.3163430,
-      "lng": 21.5664593,
-      "address": "",
-      "fee": "yes",
-      "charge": null,
-      "payment": [],
-      "disposal": null,
-      "menstrual_products": null,
-      "wheelchair": null,
-      "layer": null,
-      "access": null,
-      "opening_hours": null,
-      "website": null,
-      "description": null,
-      "checked": null,
-      "edited": "2017-09-16T11:55:19Z",
-      "osm_type": "node",
-      "osm_id": 3756040951
     },
     {
       "name": "Nyilvános mosdó",
