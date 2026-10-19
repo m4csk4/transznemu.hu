@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-12",
+  "updated": "2026-10-19",
   "toilets": [
     {
       "name": "Auchan",
@@ -813,6 +813,27 @@
       "osm_id": 8274515083
     },
     {
+      "name": "MÁV",
+      "lat": 46.1945510,
+      "lng": 19.6099201,
+      "address": "",
+      "fee": "no",
+      "charge": null,
+      "payment": [],
+      "disposal": "flush",
+      "menstrual_products": null,
+      "wheelchair": "yes",
+      "layer": null,
+      "access": null,
+      "opening_hours": null,
+      "website": null,
+      "description": null,
+      "checked": null,
+      "edited": "2026-10-17T03:05:04Z",
+      "osm_type": "way",
+      "osm_id": 1569000557
+    },
+    {
       "name": "Nyilvános mosdó",
       "lat": 46.3749734,
       "lng": 18.1301737,
@@ -960,6 +981,27 @@
       "edited": "2018-06-19T11:00:23Z",
       "osm_type": "node",
       "osm_id": 1951241065
+    },
+    {
+      "name": "Nyilvános mosdó",
+      "lat": 47.0901560,
+      "lng": 17.9089440,
+      "address": "",
+      "fee": "yes",
+      "charge": "200 HUF",
+      "payment": [],
+      "disposal": null,
+      "menstrual_products": null,
+      "wheelchair": "yes",
+      "layer": null,
+      "access": null,
+      "opening_hours": null,
+      "website": null,
+      "description": null,
+      "checked": "2026-10-17",
+      "edited": "2026-10-18T16:42:43Z",
+      "osm_type": "node",
+      "osm_id": 2231916374
     },
     {
       "name": "Nyilvános mosdó",
